@@ -77,6 +77,9 @@ static void rb_mysql_client_mark(void * wrapper) {
   }
 }
 
+#define LALDEBUG0(s) printf(s)
+#define LALFPREFIX printf("in function: %s\n", __PRETTY_FUNCTION__)
+
 static VALUE rb_raise_mysql2_error(mysql_client_wrapper *wrapper) {
   VALUE rb_error_msg = rb_str_new2(mysql_error(wrapper->client));
   VALUE rb_sql_state = rb_tainted_str_new2(mysql_sqlstate(wrapper->client));
@@ -93,6 +96,8 @@ static VALUE rb_raise_mysql2_error(mysql_client_wrapper *wrapper) {
 #endif
 
   VALUE e = rb_exc_new3(cMysql2Error, rb_error_msg);
+  LALFPREFIX;
+
   rb_funcall(e, intern_error_number_eql, 1, UINT2NUM(mysql_errno(wrapper->client)));
   rb_funcall(e, intern_sql_state_eql, 1, rb_sql_state);
   rb_exc_raise(e);
@@ -102,6 +107,8 @@ static VALUE rb_raise_mysql2_error(mysql_client_wrapper *wrapper) {
 static VALUE nogvl_init(void *ptr) {
   MYSQL *client;
 
+  LALFPREFIX;
+
   /* may initialize embedded server and read /etc/services off disk */
   client = mysql_init((MYSQL *)ptr);
   return client ? Qtrue : Qfalse;
@@ -110,6 +117,7 @@ static VALUE nogvl_init(void *ptr) {
 static VALUE nogvl_connect(void *ptr) {
   struct nogvl_connect_args *args = ptr;
   MYSQL *client;
+  LALFPREFIX;
 
   do {
     client = mysql_real_connect(args->mysql, args->host,
@@ -126,6 +134,9 @@ static VALUE nogvl_close(void *ptr) {
 #ifndef _WIN32
   int flags;
 #endif
+
+  LALFPREFIX;
+
   wrapper = ptr;
   if (!wrapper->closed) {
     wrapper->closed = 1;
@@ -155,6 +166,8 @@ static VALUE nogvl_close(void *ptr) {
 static void rb_mysql_client_free(void * ptr) {
   mysql_client_wrapper *wrapper = (mysql_client_wrapper *)ptr;
 
+  LALFPREFIX;
+
   nogvl_close(wrapper);
 
   xfree(ptr);
@@ -176,6 +189,8 @@ static VALUE rb_mysql_client_escape(RB_MYSQL_UNUSED VALUE klass, VALUE str) {
   unsigned char *newStr;
   VALUE rb_str;
   unsigned long newLen, oldLen;
+
+  LALFPREFIX;
 
   Check_Type(str, T_STRING);
 
@@ -199,6 +214,9 @@ static VALUE rb_mysql_client_escape(RB_MYSQL_UNUSED VALUE klass, VALUE str) {
 
 static VALUE rb_connect(VALUE self, VALUE user, VALUE pass, VALUE host, VALUE port, VALUE database, VALUE socket, VALUE flags) {
   struct nogvl_connect_args args;
+
+  LALFPREFIX;
+
   GET_CLIENT(self);
 
   args.host = NIL_P(host) ? "localhost" : StringValuePtr(host);
@@ -225,6 +243,8 @@ static VALUE rb_connect(VALUE self, VALUE user, VALUE pass, VALUE host, VALUE po
  * for the garbage collector.
  */
 static VALUE rb_mysql_client_close(VALUE self) {
+  LALFPREFIX;
+
   GET_CLIENT(self);
 
   if (!wrapper->closed) {
@@ -245,6 +265,8 @@ static VALUE nogvl_send_query(void *ptr) {
   const char *sql = StringValuePtr(args->sql);
   long sql_len = RSTRING_LEN(args->sql);
 
+  LALFPREFIX;
+
   rv = mysql_send_query(args->mysql, sql, sql_len);
 
   return rv == 0 ? Qtrue : Qfalse;
@@ -258,6 +280,7 @@ static VALUE nogvl_send_query(void *ptr) {
 static VALUE nogvl_read_query_result(void *ptr) {
   MYSQL * client = ptr;
   my_bool res = mysql_read_query_result(client);
+  LALFPREFIX;
 
   return res == 0 ? Qtrue : Qfalse;
 }
@@ -266,6 +289,8 @@ static VALUE nogvl_read_query_result(void *ptr) {
 static VALUE nogvl_store_result(void *ptr) {
   mysql_client_wrapper *wrapper;
   MYSQL_RES *result;
+
+  LALFPREFIX;
 
   wrapper = (mysql_client_wrapper *)ptr;
   result = mysql_store_result(wrapper->client);
@@ -283,6 +308,9 @@ static VALUE rb_mysql_client_async_result(VALUE self) {
 #ifdef HAVE_RUBY_ENCODING_H
   mysql2_result_wrapper * result_wrapper;
 #endif
+
+  LALFPREFIX;
+
   GET_CLIENT(self);
 
   // if we're not waiting on a result, do nothing
@@ -323,6 +351,8 @@ struct async_query_args {
 };
 
 static VALUE disconnect_and_raise(VALUE self, VALUE error) {
+  LALFPREFIX;
+
   GET_CLIENT(self);
 
   wrapper->closed = 1;
@@ -344,6 +374,8 @@ static VALUE do_query(void *args) {
   long int sec;
   int retval;
   VALUE read_timeout;
+
+  LALFPREFIX;
 
   async_args = (struct async_query_args *)args;
   read_timeout = rb_iv_get(async_args->self, "@read_timeout");
@@ -386,6 +418,8 @@ static VALUE finish_and_mark_inactive(void *args) {
   VALUE self;
   MYSQL_RES *result;
 
+  LALFPREFIX;
+
   self = (VALUE)args;
 
   GET_CLIENT(self);
@@ -414,6 +448,9 @@ static VALUE rb_mysql_client_query(int argc, VALUE * argv, VALUE self) {
 #ifdef HAVE_RUBY_ENCODING_H
   rb_encoding *conn_enc;
 #endif
+
+  LALFPREFIX;
+
   GET_CLIENT(self);
 
   REQUIRE_OPEN_DB(wrapper);
@@ -477,6 +514,8 @@ static VALUE rb_mysql_client_real_escape(VALUE self, VALUE str) {
   rb_encoding *default_internal_enc;
   rb_encoding *conn_enc;
 #endif
+  LALFPREFIX;
+
   GET_CLIENT(self);
 
   REQUIRE_OPEN_DB(wrapper);
@@ -515,6 +554,7 @@ static VALUE rb_mysql_client_info(VALUE self) {
   rb_encoding *default_internal_enc;
   rb_encoding *conn_enc;
 #endif
+  LALFPREFIX;
   GET_CLIENT(self);
   version = rb_hash_new();
 
@@ -541,6 +581,7 @@ static VALUE rb_mysql_client_server_info(VALUE self) {
   rb_encoding *default_internal_enc;
   rb_encoding *conn_enc;
 #endif
+  LALFPREFIX;
   GET_CLIENT(self);
 
   REQUIRE_OPEN_DB(wrapper);
@@ -563,6 +604,7 @@ static VALUE rb_mysql_client_server_info(VALUE self) {
 }
 
 static VALUE rb_mysql_client_socket(VALUE self) {
+  LALFPREFIX;
   GET_CLIENT(self);
 #ifndef _WIN32
   REQUIRE_OPEN_DB(wrapper);
@@ -574,6 +616,7 @@ static VALUE rb_mysql_client_socket(VALUE self) {
 }
 
 static VALUE rb_mysql_client_last_id(VALUE self) {
+  LALFPREFIX;
   GET_CLIENT(self);
   REQUIRE_OPEN_DB(wrapper);
   return ULL2NUM(mysql_insert_id(wrapper->client));
@@ -581,6 +624,7 @@ static VALUE rb_mysql_client_last_id(VALUE self) {
 
 static VALUE rb_mysql_client_affected_rows(VALUE self) {
   my_ulonglong retVal;
+  LALFPREFIX;
   GET_CLIENT(self);
 
   REQUIRE_OPEN_DB(wrapper);
@@ -593,6 +637,7 @@ static VALUE rb_mysql_client_affected_rows(VALUE self) {
 
 static VALUE rb_mysql_client_thread_id(VALUE self) {
   unsigned long retVal;
+  LALFPREFIX;
   GET_CLIENT(self);
 
   REQUIRE_OPEN_DB(wrapper);
@@ -602,11 +647,13 @@ static VALUE rb_mysql_client_thread_id(VALUE self) {
 
 static VALUE nogvl_ping(void *ptr) {
   MYSQL *client = ptr;
+  LALFPREFIX;
 
   return mysql_ping(client) == 0 ? Qtrue : Qfalse;
 }
 
 static VALUE rb_mysql_client_ping(VALUE self) {
+  LALFPREFIX;
   GET_CLIENT(self);
 
   if (wrapper->closed) {
@@ -618,6 +665,7 @@ static VALUE rb_mysql_client_ping(VALUE self) {
 
 #ifdef HAVE_RUBY_ENCODING_H
 static VALUE rb_mysql_client_encoding(VALUE self) {
+  LALFPREFIX;
   GET_CLIENT(self);
   return wrapper->encoding;
 }
@@ -625,6 +673,7 @@ static VALUE rb_mysql_client_encoding(VALUE self) {
 
 static VALUE set_reconnect(VALUE self, VALUE value) {
   my_bool reconnect;
+  LALFPREFIX;
   GET_CLIENT(self);
 
   if(!NIL_P(value)) {
@@ -642,6 +691,7 @@ static VALUE set_reconnect(VALUE self, VALUE value) {
 
 static VALUE set_connect_timeout(VALUE self, VALUE value) {
   unsigned int connect_timeout = 0;
+  LALFPREFIX;
   GET_CLIENT(self);
 
   if(!NIL_P(value)) {
@@ -662,6 +712,7 @@ static VALUE set_charset_name(VALUE self, VALUE value) {
 #ifdef HAVE_RUBY_ENCODING_H
   VALUE new_encoding;
 #endif
+  LALFPREFIX;
   GET_CLIENT(self);
 
 #ifdef HAVE_RUBY_ENCODING_H
@@ -687,6 +738,7 @@ static VALUE set_charset_name(VALUE self, VALUE value) {
 }
 
 static VALUE set_ssl_options(VALUE self, VALUE key, VALUE cert, VALUE ca, VALUE capath, VALUE cipher) {
+  LALFPREFIX;
   GET_CLIENT(self);
 
   if(!NIL_P(ca) || !NIL_P(key)) {
@@ -719,6 +771,7 @@ void init_mysql2_client() {
   int i;
   int dots = 0;
   const char *lib = mysql_get_client_info();
+  LALFPREFIX;
   for (i = 0; lib[i] != 0 && MYSQL_SERVER_VERSION[i] != 0; i++) {
     if (lib[i] == '.') {
       dots++;
