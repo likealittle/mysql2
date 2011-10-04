@@ -78,7 +78,8 @@ static void rb_mysql_client_mark(void * wrapper) {
 }
 
 #define LALDEBUG0(s) printf(s)
-#define LALFPREFIX printf("in function: %s\n", __PRETTY_FUNCTION__)
+#define LALFPREFIX printf("in function: %s\n", __PRETTY_FUNCTION__);    \
+  fflush(stdout)
 
 static VALUE rb_raise_mysql2_error(mysql_client_wrapper *wrapper) {
   VALUE rb_error_msg = rb_str_new2(mysql_error(wrapper->client));
