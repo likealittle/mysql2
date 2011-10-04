@@ -273,6 +273,8 @@ static VALUE nogvl_send_query(void *ptr) {
 
   rv = mysql_send_query(args->mysql, sql, sql_len);
 
+  printf("send query return value %d\n", rv);
+  fflush(stdout);
   return rv == 0 ? Qtrue : Qfalse;
 }
 
