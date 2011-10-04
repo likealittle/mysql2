@@ -80,6 +80,7 @@ static void rb_mysql_client_mark(void * wrapper) {
 #define LALDEBUG0(s) printf(s)
 #define LALFPREFIX printf("in function: %s\n", __PRETTY_FUNCTION__);    \
   fflush(stdout)
+#define LALWPREFIX printf("in function: %s, wrapper: %p, active %d\n", __PRETTY_FUNCTION__, wrapper, wrapper->active)
 
 static VALUE rb_raise_mysql2_error(mysql_client_wrapper *wrapper) {
   VALUE rb_error_msg = rb_str_new2(mysql_error(wrapper->client));
@@ -97,7 +98,7 @@ static VALUE rb_raise_mysql2_error(mysql_client_wrapper *wrapper) {
 #endif
 
   VALUE e = rb_exc_new3(cMysql2Error, rb_error_msg);
-  LALFPREFIX;
+  LALWPREFIX;
 
   rb_funcall(e, intern_error_number_eql, 1, UINT2NUM(mysql_errno(wrapper->client)));
   rb_funcall(e, intern_sql_state_eql, 1, rb_sql_state);
@@ -136,9 +137,10 @@ static VALUE nogvl_close(void *ptr) {
   int flags;
 #endif
 
-  LALFPREFIX;
 
   wrapper = ptr;
+  LALWPREFIX;
+
   if (!wrapper->closed) {
     wrapper->closed = 1;
     wrapper->active = 0;
@@ -167,7 +169,7 @@ static VALUE nogvl_close(void *ptr) {
 static void rb_mysql_client_free(void * ptr) {
   mysql_client_wrapper *wrapper = (mysql_client_wrapper *)ptr;
 
-  LALFPREFIX;
+  LALWPREFIX;
 
   nogvl_close(wrapper);
 
@@ -216,9 +218,9 @@ static VALUE rb_mysql_client_escape(RB_MYSQL_UNUSED VALUE klass, VALUE str) {
 static VALUE rb_connect(VALUE self, VALUE user, VALUE pass, VALUE host, VALUE port, VALUE database, VALUE socket, VALUE flags) {
   struct nogvl_connect_args args;
 
-  LALFPREFIX;
-
   GET_CLIENT(self);
+  LALWPREFIX;
+
 
   args.host = NIL_P(host) ? "localhost" : StringValuePtr(host);
   args.unix_socket = NIL_P(socket) ? NULL : StringValuePtr(socket);
@@ -244,9 +246,10 @@ static VALUE rb_connect(VALUE self, VALUE user, VALUE pass, VALUE host, VALUE po
  * for the garbage collector.
  */
 static VALUE rb_mysql_client_close(VALUE self) {
-  LALFPREFIX;
 
   GET_CLIENT(self);
+  LALWPREFIX;
+
 
   if (!wrapper->closed) {
     rb_thread_blocking_region(nogvl_close, wrapper, RUBY_UBF_IO, 0);
@@ -310,9 +313,9 @@ static VALUE rb_mysql_client_async_result(VALUE self) {
   mysql2_result_wrapper * result_wrapper;
 #endif
 
-  LALFPREFIX;
 
   GET_CLIENT(self);
+  LALWPREFIX;
 
   // if we're not waiting on a result, do nothing
   if (!wrapper->active)
@@ -352,9 +355,9 @@ struct async_query_args {
 };
 
 static VALUE disconnect_and_raise(VALUE self, VALUE error) {
-  LALFPREFIX;
 
   GET_CLIENT(self);
+  LALWPREFIX;
 
   wrapper->closed = 1;
   wrapper->active = 0;
@@ -419,11 +422,11 @@ static VALUE finish_and_mark_inactive(void *args) {
   VALUE self;
   MYSQL_RES *result;
 
-  LALFPREFIX;
-
   self = (VALUE)args;
 
   GET_CLIENT(self);
+  LALWPREFIX;
+
 
   if (wrapper->active) {
     // if we got here, the result hasn't been read off the wire yet
@@ -450,9 +453,9 @@ static VALUE rb_mysql_client_query(int argc, VALUE * argv, VALUE self) {
   rb_encoding *conn_enc;
 #endif
 
-  LALFPREFIX;
-
   GET_CLIENT(self);
+  LALWPREFIX;
+
 
   REQUIRE_OPEN_DB(wrapper);
   args.mysql = wrapper->client;
@@ -515,9 +518,9 @@ static VALUE rb_mysql_client_real_escape(VALUE self, VALUE str) {
   rb_encoding *default_internal_enc;
   rb_encoding *conn_enc;
 #endif
-  LALFPREFIX;
 
   GET_CLIENT(self);
+  LALWPREFIX;
 
   REQUIRE_OPEN_DB(wrapper);
   Check_Type(str, T_STRING);
@@ -555,8 +558,8 @@ static VALUE rb_mysql_client_info(VALUE self) {
   rb_encoding *default_internal_enc;
   rb_encoding *conn_enc;
 #endif
-  LALFPREFIX;
   GET_CLIENT(self);
+  LALWPREFIX;
   version = rb_hash_new();
 
 #ifdef HAVE_RUBY_ENCODING_H
@@ -582,8 +585,8 @@ static VALUE rb_mysql_client_server_info(VALUE self) {
   rb_encoding *default_internal_enc;
   rb_encoding *conn_enc;
 #endif
-  LALFPREFIX;
   GET_CLIENT(self);
+  LALWPREFIX;
 
   REQUIRE_OPEN_DB(wrapper);
 #ifdef HAVE_RUBY_ENCODING_H
@@ -605,8 +608,9 @@ static VALUE rb_mysql_client_server_info(VALUE self) {
 }
 
 static VALUE rb_mysql_client_socket(VALUE self) {
-  LALFPREFIX;
   GET_CLIENT(self);
+  LALWPREFIX;
+
 #ifndef _WIN32
   REQUIRE_OPEN_DB(wrapper);
   int fd_set_fd = wrapper->client->net.fd;
@@ -617,16 +621,17 @@ static VALUE rb_mysql_client_socket(VALUE self) {
 }
 
 static VALUE rb_mysql_client_last_id(VALUE self) {
-  LALFPREFIX;
   GET_CLIENT(self);
+  LALWPREFIX;
+
   REQUIRE_OPEN_DB(wrapper);
   return ULL2NUM(mysql_insert_id(wrapper->client));
 }
 
 static VALUE rb_mysql_client_affected_rows(VALUE self) {
   my_ulonglong retVal;
-  LALFPREFIX;
   GET_CLIENT(self);
+  LALWPREFIX;
 
   REQUIRE_OPEN_DB(wrapper);
   retVal = mysql_affected_rows(wrapper->client);
@@ -638,8 +643,8 @@ static VALUE rb_mysql_client_affected_rows(VALUE self) {
 
 static VALUE rb_mysql_client_thread_id(VALUE self) {
   unsigned long retVal;
-  LALFPREFIX;
   GET_CLIENT(self);
+  LALWPREFIX;
 
   REQUIRE_OPEN_DB(wrapper);
   retVal = mysql_thread_id(wrapper->client);
@@ -654,8 +659,8 @@ static VALUE nogvl_ping(void *ptr) {
 }
 
 static VALUE rb_mysql_client_ping(VALUE self) {
-  LALFPREFIX;
   GET_CLIENT(self);
+  LALWPREFIX;
 
   if (wrapper->closed) {
     return Qfalse;
@@ -666,16 +671,17 @@ static VALUE rb_mysql_client_ping(VALUE self) {
 
 #ifdef HAVE_RUBY_ENCODING_H
 static VALUE rb_mysql_client_encoding(VALUE self) {
-  LALFPREFIX;
   GET_CLIENT(self);
+  LALWPREFIX;
+
   return wrapper->encoding;
 }
 #endif
 
 static VALUE set_reconnect(VALUE self, VALUE value) {
   my_bool reconnect;
-  LALFPREFIX;
   GET_CLIENT(self);
+  LALWPREFIX;
 
   if(!NIL_P(value)) {
     reconnect = value == Qfalse ? 0 : 1;
@@ -692,8 +698,8 @@ static VALUE set_reconnect(VALUE self, VALUE value) {
 
 static VALUE set_connect_timeout(VALUE self, VALUE value) {
   unsigned int connect_timeout = 0;
-  LALFPREFIX;
   GET_CLIENT(self);
+  LALWPREFIX;
 
   if(!NIL_P(value)) {
     connect_timeout = NUM2INT(value);
@@ -713,8 +719,8 @@ static VALUE set_charset_name(VALUE self, VALUE value) {
 #ifdef HAVE_RUBY_ENCODING_H
   VALUE new_encoding;
 #endif
-  LALFPREFIX;
   GET_CLIENT(self);
+  LALWPREFIX;
 
 #ifdef HAVE_RUBY_ENCODING_H
   new_encoding = rb_funcall(cMysql2Client, intern_encoding_from_charset, 1, value);
@@ -739,8 +745,8 @@ static VALUE set_charset_name(VALUE self, VALUE value) {
 }
 
 static VALUE set_ssl_options(VALUE self, VALUE key, VALUE cert, VALUE ca, VALUE capath, VALUE cipher) {
-  LALFPREFIX;
   GET_CLIENT(self);
+  LALWPREFIX;
 
   if(!NIL_P(ca) || !NIL_P(key)) {
     mysql_ssl_set(wrapper->client,
@@ -756,6 +762,7 @@ static VALUE set_ssl_options(VALUE self, VALUE key, VALUE cert, VALUE ca, VALUE 
 
 static VALUE init_connection(VALUE self) {
   GET_CLIENT(self);
+  LALWPREFIX;
 
   if (rb_thread_blocking_region(nogvl_init, wrapper->client, RUBY_UBF_IO, 0) == Qfalse) {
     /* TODO: warning - not enough memory? */
