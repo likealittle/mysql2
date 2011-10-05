@@ -490,6 +490,8 @@ static VALUE rb_mysql_client_query(int argc, VALUE * argv, VALUE self) {
 #endif
 
   if (rb_thread_blocking_region(nogvl_send_query, &args, RUBY_UBF_IO, 0) == Qfalse) {
+    printf("in here suckers\n");
+    fflush(stdout);
     // an error occurred, we're not active anymore
     MARK_CONN_INACTIVE(self);
     return rb_raise_mysql2_error(wrapper);
